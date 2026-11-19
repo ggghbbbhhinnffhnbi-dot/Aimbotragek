@@ -1,0 +1,266 @@
+{
+  "name": "aimnot-rage",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "vite"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/android": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "vite": "^6.0.0"
+  }
+}
+{
+  "appId": "com.aimnotrage.trainer",
+  "appName": "AIMNOT RAGE",
+  "webDir": "dist"
+}
+const scoreEl = document.querySelector("#score");
+const timeEl = document.querySelector("#time");
+const accuracyEl = document.querySelector("#accuracy");
+const startBtn = document.querySelector("#start");
+const target = document.querySelector("#target");
+const arena = document.querySelector("#arena");
+const message = document.querySelector("#message");
+
+let score = 0;
+let shots = 0;
+let hits = 0;
+let time = 30;
+let playing = false;
+let timer = null;
+
+function updateStats() {
+  scoreEl.textContent = score;
+  timeEl.textContent = time;
+  accuracyEl.textContent =
+    shots ? Math.round((hits / shots) * 100) + "%" : "0%";
+}
+
+function moveTarget() {
+  const maxX = arena.clientWidth - target.offsetWidth;
+  const maxY = arena.clientHeight - target.offsetHeight;
+
+  target.style.left = Math.random() * Math.max(0, maxX) + "px";
+  target.style.top = Math.random() * Math.max(0, maxY) + "px";
+}
+
+function finish() {
+  playing = false;
+  clearInterval(timer);
+  target.style.display = "none";
+  message.style.display = "grid";
+  message.textContent = `TREINO FINALIZADO — ${score} PONTOS`;
+  startBtn.textContent = "JOGAR NOVAMENTE";
+}
+
+function startGame() {
+  clearInterval(timer);
+
+  score = 0;
+  shots = 0;
+  hits = 0;
+  time = 30;
+  playing = true;
+
+  updateStats();
+  message.style.display = "none";
+  target.style.display = "block";
+  startBtn.textContent = "TREINO EM ANDAMENTO";
+
+  moveTarget();
+
+  timer = setInterval(() => {
+    time--;
+    updateStats();
+
+    if (time <= 0) finish();
+  }, 1000);
+}
+
+startBtn.addEventListener("click", () => {
+  if (!playing) startGame();
+});
+
+target.addEventListener("pointerdown", (event) => {
+  if (!playing) return;
+
+  event.preventDefault();
+  shots++;
+  hits++;
+  score += 10;
+
+  updateStats();
+  moveTarget();
+});
+
+arena.addEventListener("pointerdown", (event) => {
+  if (!playing || event.target === target) return;
+
+  shots++;
+  updateStats();
+});
+
+window.addEventListener("resize", () => {
+  if (playing) moveTarget();
+});
+
+updateStats();
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #090909;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+#app {
+  width: min(100% - 28px, 600px);
+  margin: auto;
+  padding: 24px 0;
+}
+
+h1 {
+  font-size: 32px;
+  letter-spacing: 3px;
+}
+
+h1 span {
+  color: #ff2525;
+}
+
+header p,
+.tip {
+  color: #999;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  margin: 28px 0;
+}
+
+.stats div {
+  background: #181818;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 14px 8px;
+  flex: 1;
+  font-size: 11px;
+}
+
+.stats strong {
+  display: block;
+  color: #ff3333;
+  font-size: 23px;
+  margin-top: 8px;
+}
+
+#start {
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #e92323;
+  color: white;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+#arena {
+  position: relative;
+  height: 420px;
+  margin-top: 18px;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 14px;
+  touch-action: manipulation;
+}
+
+#target {
+  display: none;
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 5px solid white;
+  border-radius: 50%;
+  background: #ff2525;
+  box-shadow: 0 0 18px #ff2525;
+  touch-action: manipulation;
+}
+
+#message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  color: #aaa;
+  font-weight: bold;
+}
+
+.tip {
+  font-size: 13px;
+  margin-top: 20px;
+}
+name: Build AIMNOT RAGE APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Construir site
+        run: npm run build
+
+      - name: Criar projeto Android
+        run: npx cap add android
+
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: Compilar APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMNOT-RAGE-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
